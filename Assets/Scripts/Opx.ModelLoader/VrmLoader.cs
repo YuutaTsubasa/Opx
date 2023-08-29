@@ -1,9 +1,12 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using Cysharp.Threading.Tasks;
+using Opx.Inputs;
 using Opx.Utils;
 using UniGLTF;
 using UnityEditor;
+using UnityEditor.Animations;
 using UnityEngine;
 using UnityEngine.Networking;
 using VRM;
@@ -16,20 +19,18 @@ namespace Opx.ModelLoader
         [Header("VRM Loader 設定")] 
         [SerializeField] private string _modelPath;
         [SerializeField] private Transform _rootTransform;
+        [SerializeField] private AnimatorController _characterAnimatorController;
 
         public void LoadVrmFromEvent()
-            => LoadVrm();
+            => LoadVrm(_modelPath, _rootTransform, _characterAnimatorController);
         
-        public async UniTask LoadVrm(
-            Option<string> modelPathOption = default, 
-            Option<Transform> rootTransformOption = default)
+        public async UniTask LoadVrm(string modelPath, Transform rootTransform, 
+            AnimatorController characterAnimatorController)
         {
-            var modelPath = modelPathOption.ValueOr(_modelPath);
-            var rootTransform = rootTransformOption.ValueOr(_rootTransform);
-
             var binaryData = await _LoadFileBinaryData(modelPath);
             var vrmModelGameObject = await _ConvertToVrm(binaryData);
             vrmModelGameObject.transform.SetParent(_rootTransform);
+            _SetupCharacter(vrmModelGameObject, characterAnimatorController);
         }
 
         private string _ConvertPathToWebRequestPath(string modelPath)
@@ -51,7 +52,6 @@ namespace Opx.ModelLoader
         private async UniTask<byte[]> _LoadFileBinaryData(string modelPath)
         {
             var webRequestPath = _ConvertPathToWebRequestPath(modelPath);
-            Debug.LogError($"Path: {webRequestPath}");
             var webRequest = UnityWebRequest.Get(_ConvertPathToWebRequestPath(modelPath));
             webRequest.downloadHandler = new DownloadHandlerBuffer();
             await webRequest.SendWebRequest().ToUniTask();
@@ -68,6 +68,30 @@ namespace Opx.ModelLoader
             var instance = await context.LoadAsync(new RuntimeOnlyAwaitCaller());
             instance.ShowMeshes();
             return instance.Root;
+        }
+
+        private void _SetupCharacter(GameObject vrmGameObject, AnimatorController characterAnimatorController)
+        {
+            vrmGameObject.transform.localPosition = Vector3.zero;
+            var characterAnimator = vrmGameObject.GetComponent<Animator>();
+            if (characterAnimator != null && characterAnimatorController != null)
+            {
+                characterAnimator.runtimeAnimatorController = characterAnimatorController;
+            }
+
+            var characterController = vrmGameObject.AddComponent<CharacterController>();
+            characterController.center = new Vector3(0, 0.75f, 0);
+            characterController.radius = 0.5f;
+            characterController.height = 1.5f;
+
+            var inputToCharacterController = vrmGameObject.AddComponent<InputToCharacterController>();
+            inputToCharacterController.SetupCharacter(characterAnimator, characterController);
+
+            // var characterRigidbody = vrmGameObject.AddComponent<Rigidbody>();
+            // characterRigidbody.constraints =
+            //     RigidbodyConstraints.FreezeRotationX | 
+            //     RigidbodyConstraints.FreezeRotationY |
+            //     RigidbodyConstraints.FreezeRotationZ;
         }
     }
 }
