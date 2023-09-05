@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Cysharp.Threading.Tasks;
+using Opx.Camera;
 using Opx.Inputs;
 using Opx.Utils;
 using UniGLTF;
@@ -86,6 +87,8 @@ namespace Opx.ModelLoader
 
             var inputToCharacterController = vrmGameObject.AddComponent<InputToCharacterController>();
             inputToCharacterController.SetupCharacter(characterAnimator, characterController);
+            var mouseAimCamera = UnityEngine.Camera.main.GetComponent<MouseAimCamera>();
+            mouseAimCamera.SetupCharacter(characterAnimator, characterController, inputToCharacterController);
 
             // var characterRigidbody = vrmGameObject.AddComponent<Rigidbody>();
             // characterRigidbody.constraints =
